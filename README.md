@@ -17,3 +17,10 @@
 ```bash
 dotnet build
 dotnet run --project src/Cli
+```
+
+## Середовище
+
+.NET SDK 10.0  
+macOS 14.6  
+RID: osx-arm64
