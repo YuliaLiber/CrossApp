@@ -24,3 +24,12 @@ dotnet run --project src/Cli
 .NET SDK 10.0  
 macOS 14.6  
 RID: osx-arm64
+
+## Self-contained публікація
+
+Було створено self-contained збірки для двох RID:
+
+- osx-arm64 — 83M
+- linux-arm64 — 85M
+
+Збірка для linux-arm64 має трохи більший розмір.
