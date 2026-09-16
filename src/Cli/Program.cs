@@ -1,5 +1,9 @@
 ﻿using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.Json;
+using System.Text.Encodings.Web;
+
+Console.OutputEncoding = Encoding.UTF8;
 
 bool jsonMode = args.Contains("--json");
 
@@ -27,7 +31,12 @@ var info = new
 
 if (jsonMode)
 {
-    Console.WriteLine(JsonSerializer.Serialize(info));
+    var jsonOptions = new JsonSerializerOptions
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
+
+    Console.WriteLine(JsonSerializer.Serialize(info, jsonOptions));
 }
 else
 {
@@ -39,7 +48,7 @@ else
     Console.WriteLine($"ОС (Environment)     : {info.OSVersion}");
     Console.WriteLine($"Архітектура процесу  : {info.ProcessArchitecture}");
     Console.WriteLine($"Версія .NET (CLR)    : {info.DotNetVersion}");
-    Console.WriteLine($"Runtime              : {info.Runtime}");
+    Console.WriteLine($"Runtime               : {info.Runtime}");
     Console.WriteLine($"Каталог застосунку   : {info.AppDirectory}");
     Console.WriteLine($"Поточний каталог     : {info.CurrentDirectory}");
 
