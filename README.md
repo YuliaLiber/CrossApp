@@ -112,3 +112,53 @@ dotnet publish src/Cli -c Release -r osx-arm64 --self-contained false
 
 - при збірці під `net8.0` виводиться `збірка під net8.0`;
 - при збірці під `net10.0` виводиться `збірка під net10.0`.
+
+## Лабораторна робота 3
+
+У лабораторній роботі реалізовано імпорт даних для домену «Замовлення».
+
+### Формат CSV
+
+Файл використовує роздільник `;`.
+
+Формат:
+
+```text
+id;name;price
+```
+
+Приклад:
+
+```text
+F-001;Тумба приліжкова Nord;1890.00
+```
+
+Ціна зчитується через `decimal.TryParse` з `CultureInfo.InvariantCulture`.
+
+Пошкоджені рядки не зупиняють імпорт, а додаються до списку помилок разом із номером рядка.
+
+### Підтримувані формати
+
+* `.csv` — `ProductCsvImporter`
+* `.json` — `ProductJsonImporter`
+
+Вибір імпортера виконується за розширенням файлу через `switch expression`.
+
+### Додаткові завдання
+
+Реалізовано:
+
+* імпорт даних із JSON;
+* вибір між CSV та JSON;
+* розпізнавання різнорідних рядків за префіксом `P` / `W`;
+* статистику імпорту: загальна кількість записів, кількість прийнятих і пропущених записів та відсоток помилок.
+
+### Приклади запуску
+
+```bash
+dotnet run --project src/Cli
+dotnet run --project src/Cli -- data/sample-valid.csv
+dotnet run --project src/Cli -- data/sample.json
+dotnet run --project src/Cli -- --mixed data/mixed-sample.txt
+dotnet run --project src/Cli -- data/no-file.csv
+```

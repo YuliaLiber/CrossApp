@@ -1,33 +1,113 @@
-﻿using Core;
-using System.Text;
-using System.Text.Json;
-using System.Text.Encodings.Web;
+﻿using System.Text;
+using Core.Dto;
+using Core.Import;
 
-Console.OutputEncoding = Encoding.UTF8;
 
-EnvironmentReport report = EnvironmentInfo.Collect();
-
-bool jsonMode = args.Contains("--json");
-
-if (jsonMode)
+if (args.Length > 0 && args[0] == "--mixed")
 {
-    var jsonOptions = new JsonSerializerOptions
+    string mixedPath = args.Length > 1
+        ? args[1]
+        : Path.Combine("data", "mixed-sample.txt");
+
+    if (!File.Exists(mixedPath))
     {
-        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-    };
+        Console.WriteLine(
+            $"Файл не знайдено: {Path.GetFullPath(mixedPath)}");
+        return 1;
+    }
 
-     Console.WriteLine(JsonSerializer.Serialize(report, jsonOptions));
+    string[] lines = File.ReadAllLines(
+        mixedPath,
+        Encoding.UTF8);
+
+    foreach (string line in lines)
+    {
+        MixedRecord? record = MixedLineParser.Parse(line);
+
+        switch (record)
+        {
+            case ProductMixed product:
+                Console.WriteLine(
+                    $"Товар: {product.Value.Id} | " +
+                    $"{product.Value.Name} | " +
+                    $"{product.Value.Price:F2}");
+                break;
+
+            case WarehouseMixed warehouse:
+                Console.WriteLine(
+                    $"Склад: {warehouse.Value.Id} | " +
+                    $"{warehouse.Value.Name}");
+                break;
+
+            default:
+                Console.WriteLine(
+                    $"Не вдалося розпізнати: {line}");
+                break;
+        }
+    }
+
+    return 0;
 }
-else
+
+
+string path = args.Length > 0
+    ? args[0]
+    : Path.Combine("data", "sample.csv");
+
+if (!File.Exists(path))
 {
-    Console.WriteLine("CrossApp – інформація про середовище");
-    Console.WriteLine(new string('-', 52));
-
-    Console.WriteLine($"ОС             : {report.OsDescription}");
-    Console.WriteLine($"Runtime        : {report.FrameworkDescription}");
-    Console.WriteLine($"Архітектура    : {report.ProcessArchitecture}");
-    Console.WriteLine($"RID (визначено): {report.DetectedRid}");
-    Console.WriteLine($"RID (від .NET) : {report.ReportedRid}");
-    Console.WriteLine($"Каталог        : {report.BaseDirectory}");
-    Console.WriteLine($"Збірка         : {report.BuildNote}");
+    Console.WriteLine(
+        $"Файл не знайдено: {Path.GetFullPath(path)}");
+    return 1;
 }
+
+string extension =
+    Path.GetExtension(path).ToLowerInvariant();
+
+ImportResult<ProductDto> result = extension switch
+{
+    ".csv" => ProductCsvImporter.Load(path),
+
+    ".json" => ProductJsonImporter.Load(path),
+
+    _ => new ImportResult<ProductDto>(
+        [],
+        [$"Непідтримуваний формат файлу: {extension}"])
+};
+
+
+Console.WriteLine(
+    $"Завантажено записів: {result.Items.Count}");
+
+foreach (ProductDto p in result.Items.Take(5))
+{
+    Console.WriteLine(
+        $"{p.Id,-8} {p.Name,-26} {p.Price,10:F2}");
+}
+
+if (result.Errors.Count > 0)
+{
+    Console.WriteLine(
+        $"Пропущено рядків: {result.Errors.Count}");
+
+    foreach (string e in result.Errors)
+    {
+        Console.WriteLine($"! {e}");
+    }
+}
+
+
+int total =
+    result.Items.Count + result.Errors.Count;
+
+double errorPercent = total > 0
+    ? result.Errors.Count * 100.0 / total
+    : 0;
+
+Console.WriteLine(
+    $"Усього: {total} | " +
+    $"Прийнято: {result.Items.Count} | " +
+    $"Пропущено: {result.Errors.Count} | " +
+    $"Помилок: {errorPercent:F2}%");
+
+return 0;
