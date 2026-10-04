@@ -38,7 +38,7 @@ public static class ProductCsvImporter
                     break;
             }
         }
-
+        
         return new ImportResult<ProductDto>(items, errors);
     }
 
@@ -84,4 +84,4 @@ public static class ProductCsvImporter
 
     private sealed record ParseFailed(string Reason)
         : ParseOutcome;
-}
+} 
