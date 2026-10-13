@@ -8,41 +8,29 @@ public sealed class Order
 
     public string Id { get; }
     public string CustomerId { get; }
-
     public OrderStatus Status { get; private set; }
 
-    public IReadOnlyList<OrderLine> Lines =>
-        _lines.AsReadOnly();
+    public IReadOnlyList<OrderLine> Lines => _lines.AsReadOnly();
+    public decimal Total => _lines.Sum(x => x.Price * x.Quantity);
 
-    public decimal Total =>
-        _lines.Sum(line => line.Price * line.Quantity);
-
-    private Order(
-        string id,
-        string customerId)
+    private Order(string id, string customerId)
     {
         Id = id;
         CustomerId = customerId;
         Status = OrderStatus.Draft;
     }
 
-    public static Order Create(
-        string id,
-        string customerId)
+    public static Order Create(string id, string customerId)
     {
         if (string.IsNullOrWhiteSpace(id))
             throw new ArgumentException(
-                "Ідентифікатор замовлення не може бути порожнім",
-                nameof(id));
+                "ID замовлення не може бути порожнім");
 
         if (string.IsNullOrWhiteSpace(customerId))
             throw new ArgumentException(
-                "Ідентифікатор клієнта не може бути порожнім",
-                nameof(customerId));
+                "ID клієнта не може бути порожнім");
 
-        return new Order(
-            id.Trim(),
-            customerId.Trim());
+        return new Order(id.Trim(), customerId.Trim());
     }
 
     public void AddLine(
@@ -53,68 +41,51 @@ public sealed class Order
     {
         if (Status != OrderStatus.Draft)
             throw new InvalidOperationException(
-                $"До замовлення {Id} зі статусом {Status} рядки додавати не можна");
+                "Товар можна додавати тільки до замовлення у стані Draft");
 
-        OrderLine line = OrderLine.Create(
-            productId,
-            name,
-            price,
-            quantity);
-
-        _lines.Add(line);
+        _lines.Add(
+            OrderLine.Create(productId, name, price, quantity));
     }
 
     public void Confirm()
     {
         if (_lines.Count == 0)
             throw new InvalidOperationException(
-                $"Замовлення {Id} порожнє, його не можна підтвердити");
+                "Порожнє замовлення не можна підтвердити");
 
-        ChangeStatus(OrderStatus.Confirmed);
+        Status = Status switch
+        {
+            OrderStatus.Draft => OrderStatus.Confirmed,
+
+            OrderStatus.Confirmed =>
+                throw new InvalidOperationException(
+                    "Замовлення вже підтверджене"),
+
+            OrderStatus.Cancelled =>
+                throw new InvalidOperationException(
+                    "Скасоване замовлення не можна підтвердити"),
+
+            _ =>
+                throw new InvalidOperationException(
+                    "Невідомий статус замовлення")
+        };
     }
 
     public void Cancel()
     {
-        ChangeStatus(OrderStatus.Cancelled);
-    }
-
-    private void ChangeStatus(OrderStatus newStatus)
-    {
-        bool allowed =
-            (Status, newStatus) switch
-            {
-                (OrderStatus.Draft,
-                 OrderStatus.Confirmed) => true,
-
-                (OrderStatus.Draft,
-                 OrderStatus.Cancelled) => true,
-
-                (OrderStatus.Confirmed,
-                 OrderStatus.Cancelled) => true,
-
-                _ => false
-            };
-
-        if (!allowed)
+        if (Status == OrderStatus.Cancelled)
             throw new InvalidOperationException(
-                $"Перехід зі статусу {Status} у {newStatus} заборонений");
+                "Замовлення вже скасоване");
 
-        Status = newStatus;
+        Status = OrderStatus.Cancelled;
     }
 
-    public OrderDto ToDto()
-    {
-        List<OrderLineDto> lineDtos =
-            _lines
-                .Select(line => line.ToDto())
-                .ToList();
-
-        return new OrderDto(
+    public OrderDto ToDto() =>
+        new(
             Id,
             CustomerId,
             Status.ToString(),
-            lineDtos);
-    }
+            _lines.Select(x => x.ToDto()).ToList());
 
     public static Order FromDto(OrderDto dto)
     {
@@ -123,22 +94,18 @@ public sealed class Order
 
         if (dto.Lines is null)
             throw new ArgumentException(
-                "Список рядків замовлення не може бути null",
-                nameof(dto));
+                "Список товарів не може бути null");
 
         if (!Enum.TryParse(
                 dto.Status,
                 true,
                 out OrderStatus status))
             throw new ArgumentException(
-                $"Невідомий статус замовлення: {dto.Status}",
-                nameof(dto));
+                $"Невідомий статус: {dto.Status}");
 
-        Order order = Create(
-            dto.Id,
-            dto.CustomerId);
+        Order order = Create(dto.Id, dto.CustomerId);
 
-        foreach (OrderLineDto line in dto.Lines)
+        foreach (var line in dto.Lines)
         {
             order.AddLine(
                 line.ProductId,
@@ -147,44 +114,16 @@ public sealed class Order
                 line.Quantity);
         }
 
-        switch (status)
-        {
-            case OrderStatus.Draft:
-                break;
-
-            case OrderStatus.Confirmed:
-                order.Confirm();
-                break;
-
-            case OrderStatus.Cancelled:
-                order.Cancel();
-                break;
-        }
+        if (status == OrderStatus.Confirmed)
+            order.Confirm();
+        else if (status == OrderStatus.Cancelled)
+            order.Cancel();
 
         return order;
     }
 
-    public override string ToString()
-    {
-        string statusText =
-            Status switch
-            {
-                OrderStatus.Draft =>
-                    "чернетка",
-
-                OrderStatus.Confirmed =>
-                    "підтверджене",
-
-                OrderStatus.Cancelled =>
-                    "скасоване",
-
-                _ =>
-                    "невідомо"
-            };
-
-        return $"{Id} | клієнт: {CustomerId} | " +
-               $"рядків: {_lines.Count} | " +
-               $"сума: {Total:F2} | " +
-               $"статус: {statusText}";
-    }
+    public override string ToString() =>
+        $"{Id} | клієнт: {CustomerId} | " +
+        $"рядків: {_lines.Count} | " +
+        $"сума: {Total:F2} | статус: {Status}";
 }
