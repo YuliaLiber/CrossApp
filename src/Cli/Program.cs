@@ -1,7 +1,11 @@
 ﻿using System.Text;
+using Core;
+using Core.Abstractions;
 using Core.Domain;
 using Core.Dto;
 using Core.Import;
+using Core.Services;
+using Core.Storage;
 
 static void TryDo(string title, Action action)
 {
@@ -24,7 +28,6 @@ if (args.Length > 0 && args[0] == "--lab4")
 {
     Console.WriteLine("=== Лабораторна робота №4 ===");
     Console.WriteLine();
-
 
     Console.WriteLine("=== Сценарій 1: успіх ===");
 
@@ -257,6 +260,124 @@ TryDo(
     return 0;
 }
 
+bool runLab5 =
+    args.Length == 0 ||
+    args.Contains("--file") ||
+    args.Contains("--memory") ||
+    args.Contains("--cache");
+
+if (runLab5)
+{
+    Console.WriteLine(
+        "=== Лабораторна робота №5 ===");
+    Console.WriteLine();
+
+    string dataPath =
+        Path.Combine(
+            AppContext.BaseDirectory,
+            "data",
+            "orders.json");
+
+    IOrderStore store =
+        StoreFactory.Create(
+            args,
+            dataPath);
+
+    if (args.Contains("--cache"))
+        store =
+            new CachingOrderStore(store);
+
+    OrderService service =
+        new OrderService(store);
+
+    Console.WriteLine(
+        $"Сховище: {store.GetType().Name}");
+
+    if (args.Contains("--file"))
+        Console.WriteLine(
+            $"Файл: {dataPath}");
+
+    Console.WriteLine();
+
+    string orderId =
+        "O-" +
+        Guid.NewGuid()
+            .ToString("N")[..6]
+            .ToUpperInvariant();
+
+    Order created =
+        service.CreateOrder(
+            orderId,
+            "C-500");
+
+    service.AddLine(
+        orderId,
+        "F-001",
+        "Тумба приліжкова Nord",
+        1890m,
+        1);
+
+    service.AddLine(
+        orderId,
+        "F-002",
+        "Комод Lora 4 шухляди",
+        4690m,
+        1);
+
+    service.Confirm(orderId);
+
+    Console.WriteLine(
+        $"Створено: {created}");
+
+    Console.WriteLine();
+    Console.WriteLine(
+        "=== Список замовлень ===");
+
+    foreach (Order order
+             in service.All().Take(8))
+    {
+        Console.WriteLine(order);
+    }
+
+    Console.WriteLine();
+
+    Console.WriteLine(
+        "=== Пошук за id ===");
+
+    Console.WriteLine(
+        service.Find(orderId));
+
+    Console.WriteLine();
+
+    Console.WriteLine(
+        "=== Додаткове: пошук через Func ===");
+
+    foreach (Order order in
+             service
+                 .Search(x => x.Total >= 3000)
+                 .Take(5))
+    {
+        Console.WriteLine(order);
+    }
+
+    Console.WriteLine();
+
+    Console.WriteLine(
+        "=== Сценарій відмови ===");
+
+    try
+    {
+        service.Confirm(
+            "O-NOT-FOUND");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine(
+            $"{ex.GetType().Name} — {ex.Message}");
+    }
+
+    return 0;
+}
 
 if (args.Length > 0 && args[0] == "--mixed")
 {
@@ -366,3 +487,17 @@ Console.WriteLine(
     $"Помилок: {errorPercent:F2}%");
 
 return 0;
+
+static class StoreFactory
+{
+    public static IOrderStore Create(
+        string[] args,
+        string dataPath)
+    {
+        if (args.Contains("--file"))
+            return new FileOrderStore(dataPath);
+
+        return new InMemoryOrderStore(
+            SampleData.Orders());
+    }
+}
