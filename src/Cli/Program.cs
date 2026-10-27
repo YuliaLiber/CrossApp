@@ -7,6 +7,12 @@ using Core.Import;
 using Core.Services;
 using Core.Storage;
 
+if (args.Contains("--lab6"))
+{
+    Lab6Demo.Run();
+    return 0;
+}
+
 static void TryDo(string title, Action action)
 {
     try
@@ -34,6 +40,7 @@ if (args.Length > 0 && args[0] == "--lab4")
     Order order = Order.Create(
         "O-001",
         "C-001");
+
 
     order.AddLine(
         "F-001",
@@ -278,14 +285,12 @@ if (runLab5)
             "data",
             "orders.json");
 
-    IOrderStore store =
-        StoreFactory.Create(
-            args,
-            dataPath);
+   IOrderStore store = args.Contains("--file")
+    ? new FileOrderStore(dataPath)
+    : new InMemoryOrderStore(SampleData.Orders());
 
-    if (args.Contains("--cache"))
-        store =
-            new CachingOrderStore(store);
+if (args.Contains("--cache"))
+    store = new CachingOrderStore(store);
 
     OrderService service =
         new OrderService(store);

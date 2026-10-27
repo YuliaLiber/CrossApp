@@ -1,5 +1,6 @@
 using Core.Abstractions;
 using Core.Domain;
+using Core.Events;
 
 namespace Core.Services;
 
@@ -7,50 +8,64 @@ public sealed class OrderService
 {
     private readonly IOrderStore _store;
 
+public event EventHandler<OrderChangedEventArgs>? Changed;
+
+private void OnChanged(Order order, OrderChangeKind kind)
+{
+    Changed?.Invoke(
+        this,
+        new OrderChangedEventArgs(
+            order.Id,
+            kind,
+            order.Lines.Count,
+            order.Total
+        )
+    );
+}
+
     public OrderService(IOrderStore store)
     {
         _store = store
             ?? throw new ArgumentNullException(nameof(store));
     }
 
-    public Order CreateOrder(
-        string id,
-        string customerId)
-    {
-        Order order =
-            Order.Create(id, customerId);
+   public Order CreateOrder(string id, string customerId)
+{
+    Order order = Order.Create(id, customerId);
 
-        _store.Add(order);
+    _store.Add(order);
 
-        return order;
-    }
+    OnChanged(order, OrderChangeKind.OrderCreated);
 
-    public void AddLine(
-        string orderId,
-        string productId,
-        string name,
-        decimal price,
-        int quantity)
-    {
-        Order order = GetRequired(orderId);
+    return order;
+}
 
-        order.AddLine(
-            productId,
-            name,
-            price,
-            quantity);
+   public void AddLine(
+    string orderId,
+    string productId,
+    string name,
+    decimal price,
+    int quantity)
+{
+    Order order = GetRequired(orderId);
 
-        _store.Update(order);
-    }
+    order.AddLine(productId, name, price, quantity);
 
-    public void Confirm(string orderId)
-    {
-        Order order = GetRequired(orderId);
+    _store.Update(order);
 
-        order.Confirm();
+    OnChanged(order, OrderChangeKind.LineAdded);
+}
 
-        _store.Update(order);
-    }
+   public void Confirm(string orderId)
+{
+    Order order = GetRequired(orderId);
+
+    order.Confirm();
+
+    _store.Update(order);
+
+    OnChanged(order, OrderChangeKind.OrderConfirmed);
+}
 
     public void Cancel(string orderId)
     {
