@@ -6,10 +6,158 @@ using Core.Dto;
 using Core.Import;
 using Core.Services;
 using Core.Storage;
+using Core.Events;
 
 if (args.Contains("--lab6"))
 {
-    Lab6Demo.Run();
+    Console.WriteLine("=== Лабораторна робота №6 ===");
+
+    string dir = Path.Combine(AppContext.BaseDirectory, "logs");
+    Directory.CreateDirectory(dir);
+
+    string logPath = Path.Combine(dir, "app.log");
+    string sinkPath = Path.Combine(dir, "sink.log");
+
+    File.WriteAllText(logPath, "");
+    File.WriteAllText(sinkPath, "");
+
+    IOrderStore store = new InMemoryOrderStore();
+    INotificationSink sink = new FileSink(sinkPath);
+    OrderService service = new OrderService(store, sink);
+
+    // Перший підписник: консоль + журнал
+    void OnChanged(object? sender, OrderChangedEventArgs e)
+    {
+        string text = $"{e.At:HH:mm:ss} | {e.Kind,-15} | " +
+                      $"{e.OrderId} | Позицій: {e.LinesCount} | " +
+                      $"Сума: {e.Total:0.00} грн";
+
+        Console.WriteLine(text);
+        File.AppendAllText(logPath, text + Environment.NewLine);
+    }
+
+    service.Changed += OnChanged;
+
+    // Другий підписник: лямбда і замикання
+    int changes = 0;
+    service.Changed += (_, _) => changes++;
+
+    Console.WriteLine("\n--- Створення замовлення ---");
+
+    Order order = service.CreateOrder("O-601", "C-601");
+    service.AddLine(order.Id, "P-101", "Стіл", 3500m, 1);
+    service.AddLine(order.Id, "P-102", "Стілець", 1200m, 2);
+    service.Confirm(order.Id);
+
+    Console.WriteLine($"\nКількість подій: {changes}");
+
+    Console.WriteLine("\n--- Перевірка інваріанта ---");
+
+int beforeInvalid = changes;
+
+try
+{
+    service.AddLine("O-601", "P-103", "Шафа", 2000m, 0);
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Помилка: {ex.Message}");
+}
+
+Console.WriteLine($"Нових подій: {changes - beforeInvalid}");
+
+    // Відписка
+    Console.WriteLine("\n--- Відписка ---");
+
+    service.Changed -= OnChanged;
+    service.CreateOrder("O-602", "C-602");
+
+    Console.WriteLine($"Подій після відписки: {changes}");
+    Console.WriteLine($"Записів у app.log: {File.ReadAllLines(logPath).Length}");
+
+    // Сценарій відмови
+    Console.WriteLine("\n--- Сценарій відмови ---");
+
+    int before = changes;
+
+    try
+    {
+        service.Confirm("O-NOT-FOUND");
+    }
+    catch (InvalidOperationException ex)
+    {
+        Console.WriteLine($"Помилка: {ex.Message}");
+    }
+
+    Console.WriteLine($"Нових подій: {changes - before}");
+
+    // Пошук через Func
+    Console.WriteLine("\n--- Пошук через Func ---");
+
+    foreach (Order o in service.Search(o => o.Total >= 3000m))
+        Console.WriteLine($"{o.Id} | Сума: {o.Total:0.00} грн");
+
+    // Додаткове 1: дві реалізації INotificationSink
+    Console.WriteLine("\n--- Додаткове 1: ручний DI ---");
+
+    Console.WriteLine(
+        $"Повідомлень у sink.log: {File.ReadAllLines(sinkPath).Length}");
+
+    INotificationSink consoleSink = new ConsoleSink();
+    OrderService otherService = new OrderService(
+        new InMemoryOrderStore(), consoleSink);
+
+    otherService.CreateOrder("O-603", "C-603");
+
+    // Додаткове 2: Action<string> для імпорту
+    Console.WriteLine("\n--- Додаткове 2: Action<string> ---");
+
+    string csvPath = Path.Combine(
+        AppContext.BaseDirectory, "orders-lab6.csv");
+
+    File.WriteAllLines(csvPath, new[]
+    {
+        "O-701;C-701",
+        "неправильний рядок",
+        "O-702;C-702",
+        "O-703;"
+    });
+
+    List<Order> ImportOrders(string file, Action<string> onSkipped)
+    {
+        List<Order> result = new();
+
+        foreach (string line in File.ReadLines(file))
+        {
+            string[] p = line.Split(';');
+
+            if (p.Length != 2 ||
+                string.IsNullOrWhiteSpace(p[0]) ||
+                string.IsNullOrWhiteSpace(p[1]))
+            {
+                onSkipped($"Пропущено: {line}");
+                continue;
+            }
+
+            result.Add(Order.Create(p[0].Trim(), p[1].Trim()));
+        }
+
+        return result;
+    }
+
+    int skipped = 0;
+
+    var imported = ImportOrders(csvPath, message =>
+    {
+        skipped++;
+        Console.WriteLine(message);
+    });
+
+    Console.WriteLine($"Імпортовано: {imported.Count}");
+    Console.WriteLine($"Пропущено: {skipped}");
+
+    Console.WriteLine("\n=== Лабораторну завершено ===");
+
     return 0;
 }
 

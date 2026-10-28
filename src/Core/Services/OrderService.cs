@@ -7,6 +7,7 @@ namespace Core.Services;
 public sealed class OrderService
 {
     private readonly IOrderStore _store;
+    private readonly INotificationSink? _sink;
 
 public event EventHandler<OrderChangedEventArgs>? Changed;
 
@@ -21,13 +22,17 @@ private void OnChanged(Order order, OrderChangeKind kind)
             order.Total
         )
     );
+
+    _sink?.Notify($"{kind}: {order.Id}, сума: {order.Total}");
 }
 
-    public OrderService(IOrderStore store)
-    {
-        _store = store
-            ?? throw new ArgumentNullException(nameof(store));
-    }
+    public OrderService(
+    IOrderStore store,
+    INotificationSink? sink = null)
+{
+    _store = store ?? throw new ArgumentNullException(nameof(store));
+    _sink = sink;
+}
 
    public Order CreateOrder(string id, string customerId)
 {
