@@ -7,6 +7,242 @@ using Core.Import;
 using Core.Services;
 using Core.Storage;
 using Core.Events;
+using Core.Reports;
+using System.Diagnostics;
+
+string? reportCommand = args.FirstOrDefault(a =>
+    a is "report-top" or "report-high" or
+         "report-groups" or "report-sum" or
+         "report-deferred" or "report-empty" or
+         "report-join" or "report-extension" or
+         "report-query" or "report-benchmark");
+
+if (reportCommand != null)
+{
+    Console.WriteLine("=== Лабораторна робота №7 ===");
+
+    var items = SampleData.ReportOrders();
+
+    switch (reportCommand)
+    {
+        case "report-top":
+            Console.WriteLine("\n--- Топ-5 клієнтів ---");
+
+            foreach (var c in ReportService.TopCustomers(items, 5))
+            {
+                Console.WriteLine(
+                    $"{c.CustomerId,-10} | " +
+                    $"Замовлень: {c.OrdersCount,2} | " +
+                    $"Сума: {c.Total:F2} грн");
+            }
+            break;
+
+
+case "report-deferred":
+{
+    Console.WriteLine("\n--- Відкладене виконання LINQ ---");
+
+    var source = SampleData.ReportOrders().ToList();
+    var query = source.Where(o => o.Total > 5000m);
+
+    Console.WriteLine(
+        $"До додавання: {query.Count()}");
+
+    Order newOrder = Order.Create("O-999", "C-999");
+    newOrder.AddLine("F-999", "Новий стіл", 6000m, 1);
+    source.Add(newOrder);
+
+    Console.WriteLine(
+        $"Після додавання: {query.Count()}");
+
+    var snapshot = query.ToList();
+
+    source.Clear();
+
+    Console.WriteLine(
+        $"Після очищення джерела: {query.Count()}");
+
+    Console.WriteLine(
+        $"Збережений результат ToList(): {snapshot.Count}");
+
+    break;
+
+}
+
+case "report-empty":
+{
+    Console.WriteLine("\n--- Перевірка порожнього набору ---");
+
+    var empty = new List<Order>();
+
+    Console.WriteLine(
+        $"Топ клієнтів: {ReportService.TopCustomers(empty, 5).Count}");
+
+    Console.WriteLine(
+        $"Дорогих замовлень: {ReportService.ExpensiveOrders(empty, 5000m).Count}");
+
+    Console.WriteLine(
+        $"Груп за статусом: {ReportService.ByStatus(empty).Count}");
+
+   var emptyStats = ReportService.Totals(empty);
+
+Console.WriteLine($"Кількість: {emptyStats.Items}");
+Console.WriteLine($"Сума: {emptyStats.Total:F2}");
+Console.WriteLine($"Середнє: {emptyStats.Average:F2}");
+Console.WriteLine($"Максимум: {emptyStats.Max:F2}");
+
+    break;
+}
+
+
+case "report-join":
+{
+    Console.WriteLine("\n--- Об'єднання замовлень і товарів через Join ---");
+
+    var products = SampleData.ReportProducts();
+
+    var joined = ReportService.JoinOrdersProducts(items, products);
+
+    foreach (var p in joined)
+    {
+        Console.WriteLine(
+            $"{p.OrderId,-8} | " +
+            $"{p.ProductName,-28} | " +
+            $"{p.Quantity} шт. | " +
+            $"{p.Total:F2} грн");
+    }
+
+    Console.WriteLine($"\nЗнайдено позицій: {joined.Count}");
+
+    break;
+}
+
+
+case "report-extension":
+{
+    Console.WriteLine("\n--- Власний метод розширення LINQ ---");
+
+    var orders = ReportService.MinimumTotalOrders(items, 5000m);
+
+    foreach (var o in orders)
+    {
+        Console.WriteLine(
+            $"{o.OrderId,-8} | " +
+            $"{o.CustomerId,-8} | " +
+            $"{o.Total:F2} грн");
+    }
+
+    Console.WriteLine($"\nЗнайдено замовлень: {orders.Count}");
+
+    break;
+}
+
+
+case "report-query":
+{
+    Console.WriteLine("\n--- LINQ Query Syntax ---");
+
+    var confirmed = ReportService.ConfirmedOrdersQuery(items);
+
+    foreach (var o in confirmed)
+    {
+        Console.WriteLine(
+            $"{o.OrderId,-8} | " +
+            $"{o.CustomerId,-8} | " +
+            $"{o.Status,-10} | " +
+            $"{o.Total:F2} грн");
+    }
+
+    Console.WriteLine($"\nПідтверджених замовлень: {confirmed.Count}");
+
+    break;
+}
+
+
+case "report-benchmark":
+{
+    Console.WriteLine("\n--- Порівняння LINQ і foreach ---");
+
+    const int repetitions = 100000;
+    int linqCount = 0;
+    int loopCount = 0;
+
+    Stopwatch watch = Stopwatch.StartNew();
+
+    for (int i = 0; i < repetitions; i++)
+    {
+        linqCount = items.Count(o => o.Total >= 5000m);
+    }
+
+    watch.Stop();
+    double linqTime = watch.Elapsed.TotalMilliseconds;
+
+    watch.Restart();
+
+    for (int i = 0; i < repetitions; i++)
+    {
+        int count = 0;
+
+        foreach (var order in items)
+        {
+            if (order.Total >= 5000m)
+                count++;
+        }
+
+        loopCount = count;
+    }
+
+    watch.Stop();
+    double loopTime = watch.Elapsed.TotalMilliseconds;
+
+    Console.WriteLine($"Повторень: {repetitions}");
+    Console.WriteLine($"LINQ: {linqCount} замовлень, {linqTime:F2} мс");
+    Console.WriteLine($"foreach: {loopCount} замовлень, {loopTime:F2} мс");
+
+    break;
+}
+
+
+        case "report-high":
+            Console.WriteLine("\n--- Замовлення дорожчі за 5000 грн ---");
+
+            foreach (var o in ReportService.ExpensiveOrders(items, 5000m))
+            {
+                Console.WriteLine(
+                    $"{o.OrderId,-8} | " +
+                    $"{o.CustomerId,-8} | " +
+                    $"{o.Status,-10} | " +
+                    $"{o.Total:F2} грн");
+            }
+            break;
+
+        case "report-groups":
+            Console.WriteLine("\n--- Групування за статусом ---");
+
+            foreach (var g in ReportService.ByStatus(items))
+            {
+                Console.WriteLine(
+                    $"{g.Status,-10} | " +
+                    $"Замовлень: {g.Count,2} | " +
+                    $"Сума: {g.Total:F2} грн");
+            }
+            break;
+
+        case "report-sum":
+            Console.WriteLine("\n--- Загальна статистика ---");
+
+            var t = ReportService.Totals(items);
+
+            Console.WriteLine($"Кількість: {t.Items}");
+            Console.WriteLine($"Загальна сума: {t.Total:F2} грн");
+            Console.WriteLine($"Середня сума: {t.Average:F2} грн");
+            Console.WriteLine($"Максимальна сума: {t.Max:F2} грн");
+            break;
+    }
+
+    return 0;
+}
+
 
 if (args.Contains("--lab6"))
 {
@@ -25,7 +261,7 @@ if (args.Contains("--lab6"))
     INotificationSink sink = new FileSink(sinkPath);
     OrderService service = new OrderService(store, sink);
 
-    // Перший підписник: консоль + журнал
+
     void OnChanged(object? sender, OrderChangedEventArgs e)
     {
         string text = $"{e.At:HH:mm:ss} | {e.Kind,-15} | " +
@@ -38,7 +274,7 @@ if (args.Contains("--lab6"))
 
     service.Changed += OnChanged;
 
-    // Другий підписник: лямбда і замикання
+
     int changes = 0;
     service.Changed += (_, _) => changes++;
 
@@ -66,7 +302,7 @@ catch (Exception ex)
 
 Console.WriteLine($"Нових подій: {changes - beforeInvalid}");
 
-    // Відписка
+
     Console.WriteLine("\n--- Відписка ---");
 
     service.Changed -= OnChanged;
@@ -75,7 +311,7 @@ Console.WriteLine($"Нових подій: {changes - beforeInvalid}");
     Console.WriteLine($"Подій після відписки: {changes}");
     Console.WriteLine($"Записів у app.log: {File.ReadAllLines(logPath).Length}");
 
-    // Сценарій відмови
+
     Console.WriteLine("\n--- Сценарій відмови ---");
 
     int before = changes;
@@ -91,13 +327,13 @@ Console.WriteLine($"Нових подій: {changes - beforeInvalid}");
 
     Console.WriteLine($"Нових подій: {changes - before}");
 
-    // Пошук через Func
+
     Console.WriteLine("\n--- Пошук через Func ---");
 
-    foreach (Order o in service.Search(o => o.Total >= 3000m))
+    foreach (Order o in service.FindAll(o => o.Total >= 3000m))
         Console.WriteLine($"{o.Id} | Сума: {o.Total:0.00} грн");
 
-    // Додаткове 1: дві реалізації INotificationSink
+   
     Console.WriteLine("\n--- Додаткове 1: ручний DI ---");
 
     Console.WriteLine(
@@ -109,7 +345,7 @@ Console.WriteLine($"Нових подій: {changes - beforeInvalid}");
 
     otherService.CreateOrder("O-603", "C-603");
 
-    // Додаткове 2: Action<string> для імпорту
+
     Console.WriteLine("\n--- Додаткове 2: Action<string> ---");
 
     string csvPath = Path.Combine(
@@ -507,7 +743,7 @@ if (args.Contains("--cache"))
 
     foreach (Order order in
              service
-                 .Search(x => x.Total >= 3000)
+                 .FindAll(x => x.Total >= 3000)
                  .Take(5))
     {
         Console.WriteLine(order);

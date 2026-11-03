@@ -96,16 +96,15 @@ private void OnChanged(Order order, OrderChangeKind kind)
         return _store.Remove(id);
     }
 
-    public IReadOnlyList<Order> Search(
-        Func<Order, bool> predicate)
-    {
-        ArgumentNullException.ThrowIfNull(predicate);
+   public List<Order> FindAll(Func<Order, bool> predicate)
+{
+    ArgumentNullException.ThrowIfNull(predicate);
 
-        return _store
-            .List()
-            .Where(predicate)
-            .ToList();
-    }
+    return _store
+        .List()
+        .Where(predicate)
+        .ToList();
+}
 
     private Order GetRequired(string id)
     {
