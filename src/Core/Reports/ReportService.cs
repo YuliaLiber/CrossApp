@@ -5,32 +5,28 @@ namespace Core.Reports;
 
 public static class ReportService
 {
+    private static OrderReportLine ToLine(Order o) =>
+        new(o.Id, o.CustomerId, o.Status.ToString(), o.Total);
+
     public static IReadOnlyList<OrderReportLine> ExpensiveOrders(
         IEnumerable<Order> source, decimal threshold)
     {
-        return source
-            .Where(o => o.Total > threshold)
+        return DeferredExpensiveOrders(source, threshold)
             .OrderByDescending(o => o.Total)
-            .ThenBy(o => o.Id, StringComparer.Ordinal)
-            .Select(o => new OrderReportLine(
-                o.Id,
-                o.CustomerId,
-                o.Status.ToString(),
-                o.Total))
+            .ThenBy(o => o.OrderId)
             .ToList();
     }
 
     public static IReadOnlyList<CustomerSummary> TopCustomers(
-        IEnumerable<Order> source, int n)
+        IEnumerable<Order> source, int n, decimal minimum = 0m)
     {
         return source
+            .WithMinimumTotal(minimum)
             .GroupBy(o => o.CustomerId)
             .Select(g => new CustomerSummary(
-                g.Key,
-                g.Count(),
-                g.Sum(o => o.Total)))
+                g.Key, g.Count(), g.Sum(o => o.Total)))
             .OrderByDescending(c => c.Total)
-            .ThenBy(c => c.CustomerId, StringComparer.Ordinal)
+            .ThenBy(c => c.CustomerId)
             .Take(n)
             .ToList();
     }
@@ -44,85 +40,95 @@ public static class ReportService
                 g.Key.ToString(),
                 g.Count(),
                 g.Sum(o => o.Total)))
-            .OrderBy(g => g.Status, StringComparer.Ordinal)
+            .OrderBy(g => g.Status)
             .ToList();
     }
 
-    public static (
-        int Items,
-        decimal Total,
-        decimal Average,
-        decimal Max) Totals(IEnumerable<Order> source)
+    public static TotalsSummary Totals(IEnumerable<Order> source)
     {
         var list = source.ToList();
 
         if (list.Count == 0)
-            return (0, 0m, 0m, 0m);
+            return new TotalsSummary(0, 0, 0, 0);
 
-        return (
+        return new TotalsSummary(
             list.Count,
             list.Sum(o => o.Total),
             list.Average(o => o.Total),
-            list.Max(o => o.Total)
-        );
+            list.Max(o => o.Total));
     }
 
-
-public static IReadOnlyList<OrderProductSummary> JoinOrdersProducts(
-    IEnumerable<Order> orders,
-    IEnumerable<Product> products)
-{
-    return orders
-        .SelectMany(o => o.Lines, (order, line) => new
-        {
-            OrderId = order.Id,
-            line.ProductId,
-            line.Quantity,
-            line.Price
-        })
-        .Join(
-            products,
-            line => line.ProductId,
-            product => product.Id,
-            (line, product) => new OrderProductSummary(
-                line.OrderId,
-                product.Name,
+    // Додаткове 1: Join
+    public static IReadOnlyList<OrderProductSummary> JoinOrdersProducts(
+        IEnumerable<Order> orders, IEnumerable<Product> products)
+    {
+        return orders
+            .SelectMany(o => o.Lines, (o, line) => new
+            {
+                o.Id,
+                line.ProductId,
                 line.Quantity,
-                line.Price * line.Quantity))
-        .OrderBy(x => x.OrderId)
-        .ThenBy(x => x.ProductName)
-        .ToList();
-}
+                line.Price
+            })
+            .Join(products,
+                line => line.ProductId,
+                p => p.Id,
+                (line, p) => new OrderProductSummary(
+                    line.Id,
+                    p.Name,
+                    line.Quantity,
+                    line.Price * line.Quantity))
+            .OrderBy(x => x.OrderId)
+            .ThenBy(x => x.ProductName)
+            .ToList();
+    }
 
+    // Додаткове 2: власний метод розширення
+    public static IReadOnlyList<OrderReportLine> MinimumTotalOrders(
+        IEnumerable<Order> source, decimal minimum)
+    {
+        return source
+            .WithMinimumTotal(minimum)
+            .OrderBy(o => o.Id)
+            .Select(ToLine)
+            .ToList();
+    }
 
-public static IReadOnlyList<OrderReportLine> MinimumTotalOrders(
-    IEnumerable<Order> source, decimal minimum)
-{
-    return source
-        .WithMinimumTotal(minimum)
-        .OrderBy(o => o.Id)
-        .Select(o => new OrderReportLine(
-            o.Id,
-            o.CustomerId,
-            o.Status.ToString(),
-            o.Total))
-        .ToList();
-}
+   
 
-public static IReadOnlyList<OrderReportLine> ConfirmedOrdersQuery(
-    IEnumerable<Order> source)
-{
-    var query =
-        from order in source
-        where order.Status == OrderStatus.Confirmed
-        orderby order.Total descending, order.Id
-        select new OrderReportLine(
-            order.Id,
-            order.CustomerId,
-            order.Status.ToString(),
-            order.Total);
+    // Додаткове 3: Query Syntax з group into
+    public static IReadOnlyList<GroupSummary> ByStatusQuery(
+        IEnumerable<Order> source)
+    {
+        var query =
+            from o in source
+            group o by o.Status into g
+            orderby g.Key
+            select new GroupSummary(
+                g.Key.ToString(),
+                g.Count(),
+                g.Sum(o => o.Total));
 
-    return query.ToList();
-}
+        return query.ToList();
+    }
 
+    // Додаткове 4: варіант із проміжним ToList
+    public static IReadOnlyList<OrderReportLine> ExpensiveOrdersWithToList(
+        IEnumerable<Order> source, decimal threshold)
+    {
+        return DeferredExpensiveOrders(source, threshold)
+            .ToList()
+            .OrderByDescending(o => o.Total)
+            .ThenBy(o => o.OrderId)
+            .ToList();
+    }
+
+    // Демонстрація відкладеного виконання
+    public static IEnumerable<OrderReportLine> DeferredExpensiveOrders(
+        IEnumerable<Order> source, decimal threshold)
+    {
+        return source
+            .Where(o => o.Total > threshold)
+            .Select(ToLine);
+    }
 }

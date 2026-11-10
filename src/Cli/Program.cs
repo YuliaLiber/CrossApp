@@ -10,6 +10,7 @@ using Core.Events;
 using Core.Reports;
 using System.Diagnostics;
 
+
 string? reportCommand = args.FirstOrDefault(a =>
     a is "report-top" or "report-high" or
          "report-groups" or "report-sum" or
@@ -23,212 +24,50 @@ if (reportCommand != null)
 
     var items = SampleData.ReportOrders();
 
+    void PrintGroups(IReadOnlyList<GroupSummary> groups)
+    {
+        foreach (var g in groups)
+            Console.WriteLine(
+                $"{g.Status,-10} | Замовлень: {g.Count,2} | " +
+                $"Сума: {g.Total:F2} грн");
+    }
+
     switch (reportCommand)
     {
         case "report-top":
+        {
             Console.WriteLine("\n--- Топ-5 клієнтів ---");
 
             foreach (var c in ReportService.TopCustomers(items, 5))
-            {
                 Console.WriteLine(
-                    $"{c.CustomerId,-10} | " +
-                    $"Замовлень: {c.OrdersCount,2} | " +
+                    $"{c.CustomerId,-10} | Замовлень: {c.OrdersCount,2} | " +
                     $"Сума: {c.Total:F2} грн");
-            }
+
             break;
-
-
-case "report-deferred":
-{
-    Console.WriteLine("\n--- Відкладене виконання LINQ ---");
-
-    var source = SampleData.ReportOrders().ToList();
-    var query = source.Where(o => o.Total > 5000m);
-
-    Console.WriteLine(
-        $"До додавання: {query.Count()}");
-
-    Order newOrder = Order.Create("O-999", "C-999");
-    newOrder.AddLine("F-999", "Новий стіл", 6000m, 1);
-    source.Add(newOrder);
-
-    Console.WriteLine(
-        $"Після додавання: {query.Count()}");
-
-    var snapshot = query.ToList();
-
-    source.Clear();
-
-    Console.WriteLine(
-        $"Після очищення джерела: {query.Count()}");
-
-    Console.WriteLine(
-        $"Збережений результат ToList(): {snapshot.Count}");
-
-    break;
-
-}
-
-case "report-empty":
-{
-    Console.WriteLine("\n--- Перевірка порожнього набору ---");
-
-    var empty = new List<Order>();
-
-    Console.WriteLine(
-        $"Топ клієнтів: {ReportService.TopCustomers(empty, 5).Count}");
-
-    Console.WriteLine(
-        $"Дорогих замовлень: {ReportService.ExpensiveOrders(empty, 5000m).Count}");
-
-    Console.WriteLine(
-        $"Груп за статусом: {ReportService.ByStatus(empty).Count}");
-
-   var emptyStats = ReportService.Totals(empty);
-
-Console.WriteLine($"Кількість: {emptyStats.Items}");
-Console.WriteLine($"Сума: {emptyStats.Total:F2}");
-Console.WriteLine($"Середнє: {emptyStats.Average:F2}");
-Console.WriteLine($"Максимум: {emptyStats.Max:F2}");
-
-    break;
-}
-
-
-case "report-join":
-{
-    Console.WriteLine("\n--- Об'єднання замовлень і товарів через Join ---");
-
-    var products = SampleData.ReportProducts();
-
-    var joined = ReportService.JoinOrdersProducts(items, products);
-
-    foreach (var p in joined)
-    {
-        Console.WriteLine(
-            $"{p.OrderId,-8} | " +
-            $"{p.ProductName,-28} | " +
-            $"{p.Quantity} шт. | " +
-            $"{p.Total:F2} грн");
-    }
-
-    Console.WriteLine($"\nЗнайдено позицій: {joined.Count}");
-
-    break;
-}
-
-
-case "report-extension":
-{
-    Console.WriteLine("\n--- Власний метод розширення LINQ ---");
-
-    var orders = ReportService.MinimumTotalOrders(items, 5000m);
-
-    foreach (var o in orders)
-    {
-        Console.WriteLine(
-            $"{o.OrderId,-8} | " +
-            $"{o.CustomerId,-8} | " +
-            $"{o.Total:F2} грн");
-    }
-
-    Console.WriteLine($"\nЗнайдено замовлень: {orders.Count}");
-
-    break;
-}
-
-
-case "report-query":
-{
-    Console.WriteLine("\n--- LINQ Query Syntax ---");
-
-    var confirmed = ReportService.ConfirmedOrdersQuery(items);
-
-    foreach (var o in confirmed)
-    {
-        Console.WriteLine(
-            $"{o.OrderId,-8} | " +
-            $"{o.CustomerId,-8} | " +
-            $"{o.Status,-10} | " +
-            $"{o.Total:F2} грн");
-    }
-
-    Console.WriteLine($"\nПідтверджених замовлень: {confirmed.Count}");
-
-    break;
-}
-
-
-case "report-benchmark":
-{
-    Console.WriteLine("\n--- Порівняння LINQ і foreach ---");
-
-    const int repetitions = 100000;
-    int linqCount = 0;
-    int loopCount = 0;
-
-    Stopwatch watch = Stopwatch.StartNew();
-
-    for (int i = 0; i < repetitions; i++)
-    {
-        linqCount = items.Count(o => o.Total >= 5000m);
-    }
-
-    watch.Stop();
-    double linqTime = watch.Elapsed.TotalMilliseconds;
-
-    watch.Restart();
-
-    for (int i = 0; i < repetitions; i++)
-    {
-        int count = 0;
-
-        foreach (var order in items)
-        {
-            if (order.Total >= 5000m)
-                count++;
         }
 
-        loopCount = count;
-    }
-
-    watch.Stop();
-    double loopTime = watch.Elapsed.TotalMilliseconds;
-
-    Console.WriteLine($"Повторень: {repetitions}");
-    Console.WriteLine($"LINQ: {linqCount} замовлень, {linqTime:F2} мс");
-    Console.WriteLine($"foreach: {loopCount} замовлень, {loopTime:F2} мс");
-
-    break;
-}
-
-
         case "report-high":
+        {
             Console.WriteLine("\n--- Замовлення дорожчі за 5000 грн ---");
 
             foreach (var o in ReportService.ExpensiveOrders(items, 5000m))
-            {
                 Console.WriteLine(
-                    $"{o.OrderId,-8} | " +
-                    $"{o.CustomerId,-8} | " +
-                    $"{o.Status,-10} | " +
-                    $"{o.Total:F2} грн");
-            }
+                    $"{o.OrderId,-8} | {o.CustomerId,-8} | " +
+                    $"{o.Status,-10} | {o.Total:F2} грн");
+
             break;
+        }
 
         case "report-groups":
+        {
             Console.WriteLine("\n--- Групування за статусом ---");
 
-            foreach (var g in ReportService.ByStatus(items))
-            {
-                Console.WriteLine(
-                    $"{g.Status,-10} | " +
-                    $"Замовлень: {g.Count,2} | " +
-                    $"Сума: {g.Total:F2} грн");
-            }
+            PrintGroups(ReportService.ByStatus(items));
             break;
+        }
 
         case "report-sum":
+        {
             Console.WriteLine("\n--- Загальна статистика ---");
 
             var t = ReportService.Totals(items);
@@ -237,11 +76,129 @@ case "report-benchmark":
             Console.WriteLine($"Загальна сума: {t.Total:F2} грн");
             Console.WriteLine($"Середня сума: {t.Average:F2} грн");
             Console.WriteLine($"Максимальна сума: {t.Max:F2} грн");
+
             break;
+        }
+
+        case "report-deferred":
+        {
+            Console.WriteLine("\n--- Відкладене виконання LINQ ---");
+
+            var source = items.ToList();
+            var query = ReportService.DeferredExpensiveOrders(source, 5000m);
+
+            Console.WriteLine($"До додавання: {query.Count()}");
+
+            var order = Order.Create("O-999", "C-999");
+            order.AddLine("F-999", "Новий стіл", 6000m, 1);
+            source.Add(order);
+
+            Console.WriteLine($"Після додавання: {query.Count()}");
+
+            var snapshot = query.ToList();
+            source.Clear();
+
+            Console.WriteLine($"Після очищення джерела: {query.Count()}");
+            Console.WriteLine($"Збережений результат ToList(): {snapshot.Count}");
+
+            break;
+        }
+
+        case "report-empty":
+        {
+            Console.WriteLine("\n--- Перевірка порожнього набору ---");
+
+            var empty = new List<Order>();
+            var stats = ReportService.Totals(empty);
+
+            Console.WriteLine($"Топ клієнтів: {ReportService.TopCustomers(empty, 5).Count}");
+            Console.WriteLine($"Дорогих замовлень: {ReportService.ExpensiveOrders(empty, 5000m).Count}");
+            Console.WriteLine($"Груп за статусом: {ReportService.ByStatus(empty).Count}");
+            Console.WriteLine($"Кількість: {stats.Items}");
+            Console.WriteLine($"Сума: {stats.Total:F2}");
+            Console.WriteLine($"Середнє: {stats.Average:F2}");
+            Console.WriteLine($"Максимум: {stats.Max:F2}");
+
+            break;
+        }
+
+        case "report-join":
+        {
+            Console.WriteLine("\n--- Об'єднання замовлень і товарів через Join ---");
+
+            var products = SampleData.ReportProducts();
+            var joined = ReportService.JoinOrdersProducts(items, products);
+
+            foreach (var p in joined)
+                Console.WriteLine(
+                    $"{p.OrderId,-8} | {p.ProductName,-28} | " +
+                    $"{p.Quantity} шт. | {p.Total:F2} грн");
+
+            Console.WriteLine($"\nЗнайдено позицій: {joined.Count}");
+            break;
+        }
+
+        case "report-extension":
+        {
+            Console.WriteLine("\n--- Власний метод розширення LINQ ---");
+
+            var orders = ReportService.MinimumTotalOrders(items, 5000m);
+
+            foreach (var o in orders)
+                Console.WriteLine(
+                    $"{o.OrderId,-8} | {o.CustomerId,-8} | {o.Total:F2} грн");
+
+            Console.WriteLine($"\nЗнайдено замовлень: {orders.Count}");
+            break;
+        }
+
+        case "report-query":
+        {
+            Console.WriteLine("\n--- LINQ Query Syntax: групування ---");
+
+            PrintGroups(ReportService.ByStatusQuery(items));
+            break;
+        }
+
+        case "report-benchmark":
+        {
+            Console.WriteLine("\n--- Порівняння ToList() у LINQ ---");
+
+            const int size = 100000;
+            var bigOrders = new List<Order>(size);
+
+            for (int i = 1; i <= size; i++)
+            {
+                var order = Order.Create($"B-{i}", $"C-{i % 100}");
+                order.AddLine("F-001", "Тумба", 1890m, (i - 1) % 5 + 1);
+                bigOrders.Add(order);
+            }
+
+            var watch = Stopwatch.StartNew();
+
+            var without = ReportService.ExpensiveOrders(bigOrders, 5000m);
+            watch.Stop();
+            double withoutTime = watch.Elapsed.TotalMilliseconds;
+
+            watch.Restart();
+
+            var with = ReportService.ExpensiveOrdersWithToList(bigOrders, 5000m);
+            watch.Stop();
+            double withTime = watch.Elapsed.TotalMilliseconds;
+
+            Console.WriteLine($"Згенеровано записів: {bigOrders.Count}");
+            Console.WriteLine(
+                $"Без проміжного ToList(): {without.Count} записів, {withoutTime:F2} мс");
+            Console.WriteLine(
+                $"З проміжним ToList(): {with.Count} записів, {withTime:F2} мс");
+
+            break;
+        }
     }
 
     return 0;
 }
+
 
 
 if (args.Contains("--lab6"))
