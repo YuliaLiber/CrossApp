@@ -10,6 +10,8 @@ using Core.Events;
 using Core.Reports;
 using System.Diagnostics;
 
+if (args.Length > 0 && args[0] == "--lab8")
+    return await Lab8Runner.RunAsync(args);
 
 string? reportCommand = args.FirstOrDefault(a =>
     a is "report-top" or "report-high" or

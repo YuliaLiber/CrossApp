@@ -1,0 +1,21 @@
+
+[
+  {
+    "ProductId": "F-001",
+    "Name": "Тумба приліжкова Nord",
+    "Price": 1890,
+    "Quantity": 1
+  },
+  {
+    "ProductId": "F-002",
+    "Name": "Комод Lora",
+    "Price": 4690,
+    "Quantity": 1
+  },
+  {
+    "ProductId": "F-003",
+    "Name": "Журнальний столик Loft Oak",
+    "Price": 2790,
+    "Quantity": 2
+  }
+]

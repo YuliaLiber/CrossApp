@@ -1,3 +1,4 @@
+
 using Core.Dto;
 
 namespace Core.Domain;
@@ -9,7 +10,6 @@ public sealed class Order
     public string Id { get; }
     public string CustomerId { get; }
     public OrderStatus Status { get; private set; }
-
     public IReadOnlyList<OrderLine> Lines => _lines.AsReadOnly();
     public decimal Total => _lines.Sum(x => x.Price * x.Quantity);
 
@@ -40,7 +40,7 @@ public sealed class Order
         int quantity)
     {
         if (Status != OrderStatus.Draft)
-            throw new InvalidOperationException(
+            throw new DomainException(
                 "Товар можна додавати тільки до замовлення у стані Draft");
 
         _lines.Add(
@@ -50,7 +50,7 @@ public sealed class Order
     public void Confirm()
     {
         if (_lines.Count == 0)
-            throw new InvalidOperationException(
+            throw new DomainException(
                 "Порожнє замовлення не можна підтвердити");
 
         Status = Status switch
@@ -58,23 +58,22 @@ public sealed class Order
             OrderStatus.Draft => OrderStatus.Confirmed,
 
             OrderStatus.Confirmed =>
-                throw new InvalidOperationException(
+                throw new DomainException(
                     "Замовлення вже підтверджене"),
 
             OrderStatus.Cancelled =>
-                throw new InvalidOperationException(
+                throw new DomainException(
                     "Скасоване замовлення не можна підтвердити"),
 
-            _ =>
-                throw new InvalidOperationException(
-                    "Невідомий статус замовлення")
+            _ => throw new DomainException(
+                "Невідомий статус замовлення")
         };
     }
 
     public void Cancel()
     {
         if (Status == OrderStatus.Cancelled)
-            throw new InvalidOperationException(
+            throw new DomainException(
                 "Замовлення вже скасоване");
 
         Status = OrderStatus.Cancelled;
