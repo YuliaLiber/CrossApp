@@ -1,4 +1,7 @@
+
+using System.Text;
 using System.Text.Json;
+using System.Text.Encodings.Web;
 using Core.Abstractions;
 using Core.Domain;
 using Core.Dto;
@@ -7,21 +10,23 @@ namespace Core.Storage;
 
 public sealed class FileOrderStore : IOrderStore
 {
-    private static readonly JsonSerializerOptions Options =
-        new()
-        {
-            WriteIndented = true
-        };
+    private static readonly JsonSerializerOptions Options = new()
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
 
     private readonly Dictionary<string, Order> _cache =
         new(StringComparer.OrdinalIgnoreCase);
 
     private readonly string _path;
-
     private bool _loaded;
 
     public FileOrderStore(string path)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
         _path = Path.GetFullPath(path);
     }
 
@@ -35,7 +40,7 @@ public sealed class FileOrderStore : IOrderStore
             string json = File.ReadAllText(_path);
 
             List<OrderDto> dtos =
-                JsonSerializer.Deserialize<List<OrderDto>>(json)
+                JsonSerializer.Deserialize<List<OrderDto>>(json, Options)
                 ?? [];
 
             foreach (OrderDto dto in dtos)
@@ -50,41 +55,49 @@ public sealed class FileOrderStore : IOrderStore
 
     private void Flush()
     {
-        string? directory =
-            Path.GetDirectoryName(_path);
+        string? directory = Path.GetDirectoryName(_path);
 
         if (directory is not null)
             Directory.CreateDirectory(directory);
 
-        List<OrderDto> dtos =
-            _cache.Values
-                .Select(x => x.ToDto())
-                .ToList();
+        List<OrderDto> dtos = _cache.Values
+            .Select(x => x.ToDto())
+            .ToList();
 
-        string json =
-            JsonSerializer.Serialize(dtos, Options);
+        string json = JsonSerializer.Serialize(dtos, Options);
+        string tempPath = _path + ".tmp";
 
-        File.WriteAllText(_path, json);
+        try
+        {
+            File.WriteAllText(
+                tempPath,
+                json,
+                new UTF8Encoding(false));
+
+            File.Move(tempPath, _path, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(tempPath))
+                File.Delete(tempPath);
+        }
     }
 
     public IReadOnlyList<Order> List()
     {
         EnsureLoaded();
-
         return _cache.Values.ToList();
     }
 
     public Order? GetById(string id)
     {
         EnsureLoaded();
-
         return _cache.GetValueOrDefault(id);
     }
 
     public void Add(Order order)
     {
         ArgumentNullException.ThrowIfNull(order);
-
         EnsureLoaded();
 
         if (_cache.ContainsKey(order.Id))
@@ -92,14 +105,12 @@ public sealed class FileOrderStore : IOrderStore
                 $"Замовлення з id={order.Id} вже існує.");
 
         _cache.Add(order.Id, order);
-
         Flush();
     }
 
     public void Update(Order order)
     {
         ArgumentNullException.ThrowIfNull(order);
-
         EnsureLoaded();
 
         if (!_cache.ContainsKey(order.Id))
@@ -107,7 +118,6 @@ public sealed class FileOrderStore : IOrderStore
                 $"Замовлення з id={order.Id} не знайдено.");
 
         _cache[order.Id] = order;
-
         Flush();
     }
 

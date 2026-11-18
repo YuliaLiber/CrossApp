@@ -72,6 +72,10 @@ public sealed class OrderService
     }
 
     // ЛР8: асинхронний імпорт з підтримкою скасування і прогресу
+
+
+
+
     public async Task<int> ImportAsync(
         IOrderLineImporter importer,
         string orderId,

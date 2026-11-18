@@ -4,11 +4,29 @@
     <ProjectReference Include="..\Core\Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="11.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" Version="11.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="11.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="11.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="11.0.0" />
+  </ItemGroup>
+
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <UserSecretsId>c8e64f7d-a0e2-4e57-b1dc-c33acefbb28f</UserSecretsId>
   </PropertyGroup>
+
+
+<ItemGroup>
+  <None Update="appsettings*.json">
+    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+  </None>
+</ItemGroup>
+
 
 </Project>

@@ -103,14 +103,19 @@ public static class Lab8Runner
 
             return 0;
         }
+
         catch (OperationCanceledException)
         {
-            string message = timeoutCts.IsCancellationRequested &&
-                             !userCts.IsCancellationRequested
-                ? "Імпорт скасовано через тайм-аут."
-                : "Імпорт скасовано.";
+            if (timeoutCts.IsCancellationRequested &&
+                !userCts.IsCancellationRequested)
+            {
+                Console.WriteLine("Імпорт скасовано через тайм-аут.");
+            }
+            else
+            {
+                Console.WriteLine("Імпорт скасовано.");
+            }
 
-            Console.WriteLine(message);
             return 0;
         }
         catch (DomainException ex)

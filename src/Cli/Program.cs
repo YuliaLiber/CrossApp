@@ -20,6 +20,9 @@ string? reportCommand = args.FirstOrDefault(a =>
          "report-join" or "report-extension" or
          "report-query" or "report-benchmark");
 
+         if (args.Length > 0 && args[0] == "--lab9")
+    return Lab9Runner.Run(args);
+
 if (reportCommand != null)
 {
     Console.WriteLine("=== Лабораторна робота №7 ===");

@@ -12,10 +12,49 @@ public sealed class JsonOrderLineImporter : IOrderLineImporter
     public async Task<IReadOnlyList<OrderLineDto>> LoadAsync(
         string path, CancellationToken ct = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        ct.ThrowIfCancellationRequested();
+
+        await using var stream = new FileStream(
+            path, FileMode.Open, FileAccess.Read,
+            FileShare.Read, 4096, useAsync: true);
+
+        var options = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        };
+
+        var lines = await JsonSerializer.DeserializeAsync<List<OrderLineDto?>>(
+            stream, options, cancellationToken: ct)
+            ?? throw new DomainException(
+                "JSON-файл не містить списку записів.");
+
         var result = new List<OrderLineDto>();
 
-        await foreach (var line in StreamAsync(path, ct))
+        for (int i = 0; i < lines.Count; i++)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            var line = lines[i];
+
+            if (line is null)
+                throw new DomainException(
+                    $"Запис {i + 1}: порожній рядок замовлення");
+
+            try
+            {
+                OrderLine.Create(
+                    line.ProductId, line.Name,
+                    line.Price, line.Quantity);
+            }
+            catch (ArgumentException ex)
+            {
+                throw new DomainException(
+                    $"Запис {i + 1}: {ex.Message}", ex);
+            }
+
             result.Add(line);
+        }
 
         return result;
     }

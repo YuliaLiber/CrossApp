@@ -737,3 +737,79 @@ dotnet test CrossApp.sln --collect:"XPlat Code Coverage"
 Додатково реалізовано потоковий імпорт через `IAsyncEnumerable`, зв'язані токени скасування, відображення прогресу через `IProgress<int>` та аналіз покриття коду.
 
 Усі 13 unit-тестів пройшли успішно. Збір покриття показав 26,2% рядків коду, що дозволило визначити напрями для подальшого розширення тестування.
+
+
+
+## Лабораторна робота №9
+
+### Конфігурація та кросплатформені шляхи
+
+У лабораторній реалізовано конфігурацію застосунку,
+експорт та імпорт замовлень у JSON, безпечне збереження
+через тимчасовий файл і використання User Secrets.
+
+### Основні параметри
+
+| Ключ | Призначення |
+|---|---|
+| EnvironmentName | Назва середовища |
+| Storage:DataPath | Каталог зберігання |
+| Storage:FileName | Назва JSON-файлу |
+| Orders:Currency | Валюта замовлень |
+| Integration:ApiKey | Навчальний API-ключ |
+
+### Профілі
+
+Development:
+- Каталог: data/development
+- Рівень логування в конфігурації: Debug
+- User Secrets підключено
+
+Production:
+- Каталог: data/production
+- Рівень логування в конфігурації: Warning
+- User Secrets не підключено
+
+### Команди демонстрації
+
+Звичайний запуск:
+dotnet run --project src/Cli -- --lab9
+
+Експорт:
+dotnet run --project src/Cli -- --lab9 --export
+
+Імпорт:
+dotnet run --project src/Cli -- --lab9 --import
+
+Production:
+DOTNET_ENVIRONMENT=Production dotnet run --project src/Cli -- --lab9 --export
+
+Змінна середовища:
+CROSSAPP_DATA_PATH=/tmp/crossapp-lab9 dotnet run --project src/Cli -- --lab9 --export
+
+Аргумент командного рядка:
+dotnet run --project src/Cli -- --lab9 --Storage:DataPath=/tmp/crossapp-cli-test --export
+
+### Робота зі шляхами
+
+Для формування шляхів використовуються Path.Combine,
+Path.GetFullPath та AppContext.BaseDirectory.
+
+### Збереження JSON
+
+Перед заміною основного orders.json дані записуються
+в тимчасовий файл orders.json.tmp.
+
+Після успішного запису використовується File.Move()
+із параметром overwrite: true.
+
+### User Secrets
+
+Навчальний ключ Integration:ApiKey зберігається поза
+репозиторієм Git за допомогою dotnet user-secrets.
+
+На macOS секрети розташовуються в каталозі:
+~/.microsoft/usersecrets/<UserSecretsId>/secrets.json
+
+Значення секрету не виводиться в консоль.
+```
