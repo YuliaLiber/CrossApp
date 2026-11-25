@@ -740,76 +740,340 @@ dotnet test CrossApp.sln --collect:"XPlat Code Coverage"
 
 
 
+
 ## Лабораторна робота №9
 
 ### Конфігурація та кросплатформені шляхи
 
-У лабораторній реалізовано конфігурацію застосунку,
-експорт та імпорт замовлень у JSON, безпечне збереження
-через тимчасовий файл і використання User Secrets.
+У лабораторній роботі №9 реалізовано конфігурацію
+кросплатформеного застосунку CrossApp для обліку
+замовлень. Налаштування зберігаються у JSON-файлах,
+а також можуть перевизначатися змінними середовища
+та аргументами командного рядка.
 
-### Основні параметри
+Реалізовано імпорт і експорт замовлень у форматі JSON,
+формування переносимих шляхів, збереження даних через
+тимчасовий файл та використання User Secrets для
+конфіденційних параметрів.
+
+### Основні параметри конфігурації
 
 | Ключ | Призначення |
 |---|---|
-| EnvironmentName | Назва середовища |
-| Storage:DataPath | Каталог зберігання |
+| EnvironmentName | Назва середовища в налаштуваннях |
+| Storage:DataPath | Каталог зберігання даних |
 | Storage:FileName | Назва JSON-файлу |
+| Logging:MinimumLevel | Мінімальний рівень логування, заданий у конфігурації |
 | Orders:Currency | Валюта замовлень |
 | Integration:ApiKey | Навчальний API-ключ |
+| DOTNET_ENVIRONMENT | Вибір середовища запуску |
 
-### Профілі
+Налаштування завантажуються через ConfigurationBuilder
+та прив'язуються до класу AppOptions із використанням
+методу Get<AppOptions>().
 
-Development:
-- Каталог: data/development
-- Рівень логування в конфігурації: Debug
-- User Secrets підключено
+Для зчитування конфігурації використовуються файли
+appsettings.json та appsettings.{Environment}.json.
 
-Production:
-- Каталог: data/production
-- Рівень логування в конфігурації: Warning
-- User Secrets не підключено
+### Профілі конфігурації
 
-### Команди демонстрації
+**Development**
 
-Звичайний запуск:
-dotnet run --project src/Cli -- --lab9
+- Файл: appsettings.Development.json
+- Каталог даних: data/development
+- Logging:MinimumLevel = Debug
+- User Secrets підключаються
 
-Експорт:
-dotnet run --project src/Cli -- --lab9 --export
+**Production**
 
-Імпорт:
-dotnet run --project src/Cli -- --lab9 --import
+- Файл: appsettings.Production.json
+- Каталог даних: data/production
+- Logging:MinimumLevel = Warning
+- User Secrets не підключаються
 
-Production:
-DOTNET_ENVIRONMENT=Production dotnet run --project src/Cli -- --lab9 --export
+Профіль запуску вибирається через змінну
+DOTNET_ENVIRONMENT. За замовчуванням використовується
+Development.
 
-Змінна середовища:
-CROSSAPP_DATA_PATH=/tmp/crossapp-lab9 dotnet run --project src/Cli -- --lab9 --export
+Рівні логування визначені у конфігураційних файлах.
+Для фактичної фільтрації повідомлень необхідно
+підключити та налаштувати відповідний механізм логування.
 
-Аргумент командного рядка:
-dotnet run --project src/Cli -- --lab9 --Storage:DataPath=/tmp/crossapp-cli-test --export
+### Команди запуску
+
+Команди виконуються з кореневого каталогу CrossApp.
+
+**Звичайний запуск:**
+
+    dotnet run --project src/Cli -- --lab9
+
+**Експорт замовлень у JSON:**
+
+    dotnet run --project src/Cli -- --lab9 --export
+
+**Імпорт замовлень із JSON:**
+
+    dotnet run --project src/Cli -- --lab9 --import
+
+**Запуск у середовищі Production (bash):**
+
+    DOTNET_ENVIRONMENT=Production dotnet run --project src/Cli -- --lab9 --export
+
+**Запуск у середовищі Production (PowerShell):**
+
+    $env:DOTNET_ENVIRONMENT = "Production"
+    dotnet run --project src/Cli -- --lab9 --export
+
+### Перевизначення налаштувань
+
+Застосунок підтримує змінні середовища з префіксом
+CROSSAPP_ та окрему змінну CROSSAPP_DATA_PATH.
+
+Подвійне підкреслення __ у змінних середовища
+використовується для позначення вкладених параметрів
+конфігурації.
+
+**Приклад для bash (macOS/Linux):**
+
+    CROSSAPP_DATA_PATH=/tmp/crossapp-lab9 dotnet run --project src/Cli -- --lab9 --export
+
+**Приклад для PowerShell (Windows):**
+
+    $env:CROSSAPP_DATA_PATH = "$env:TEMP\CrossAppLab9"
+    dotnet run --project src/Cli -- --lab9 --export
+
+**Перевизначення через префікс CROSSAPP_ (bash):**
+
+    CROSSAPP_Orders__Currency=EUR dotnet run --project src/Cli -- --lab9
+
+**Перевизначення через префікс CROSSAPP_ (PowerShell):**
+
+    $env:CROSSAPP_Orders__Currency = "EUR"
+    dotnet run --project src/Cli -- --lab9
+
+**Перевизначення каталогу аргументом командного рядка:**
+
+    dotnet run --project src/Cli -- --lab9 --Storage:DataPath=/tmp/crossapp-cli-test --export
+
+Аргументи командного рядка мають пріоритет над
+відповідними налаштуваннями середовища.
 
 ### Робота зі шляхами
 
-Для формування шляхів використовуються Path.Combine,
-Path.GetFullPath та AppContext.BaseDirectory.
+Для формування кросплатформених шляхів використовуються:
 
-### Збереження JSON
+- Path.Combine() — об'єднання компонентів шляху.
+- Path.GetFullPath() — отримання абсолютного шляху.
+- AppContext.BaseDirectory — каталог застосунку.
+- Directory.CreateDirectory() — створення каталогу даних.
 
-Перед заміною основного orders.json дані записуються
-в тимчасовий файл orders.json.tmp.
+Завдяки цьому програма не залежить від поточного
+робочого каталогу.
 
-Після успішного запису використовується File.Move()
-із параметром overwrite: true.
+Переносимість перевірено запуском із кореня CrossApp
+та з каталогу src/Cli. В обох випадках використовується
+той самий абсолютний шлях до файлу orders.json.
+
+### Збереження та читання JSON
+
+Для зберігання замовлень використовується FileOrderStore.
+
+Дані серіалізуються у JSON із використанням
+System.Text.Json. Файл містить колекцію замовлень
+та інформацію про товари в кожному замовленні.
+
+Для назв полів використовується camelCase.
+Текст зберігається у UTF-8 зі збереженням українських
+символів у читабельному вигляді.
+
+Перед оновленням основного файлу orders.json дані
+записуються до тимчасового файлу orders.json.tmp.
+
+Після успішного запису виконується:
+
+    File.Move(tempPath, filePath, overwrite: true);
+
+Такий підхід зменшує ризик пошкодження основного
+файлу під час його оновлення.
+
+Після завершення запису тимчасовий файл видаляється,
+якщо він залишився.
+
+Передбачено обробку некоректного JSON за допомогою
+JsonException та виведення повідомлення про помилку.
 
 ### User Secrets
 
-Навчальний ключ Integration:ApiKey зберігається поза
-репозиторієм Git за допомогою dotnet user-secrets.
+Для зберігання навчального API-ключа використовується
+механізм User Secrets.
 
-На macOS секрети розташовуються в каталозі:
-~/.microsoft/usersecrets/<UserSecretsId>/secrets.json
+Ініціалізація:
 
-Значення секрету не виводиться в консоль.
+    dotnet user-secrets init --project src/Cli
+
+Додавання навчального ключа:
+
+    dotnet user-secrets set "Integration:ApiKey" "example-dev-key" --project src/Cli
+
+Ключ зчитується через конфігурацію:
+
+    configuration["Integration:ApiKey"]
+
+На macOS секрети зберігаються поза репозиторієм,
+у каталозі:
+
+    ~/.microsoft/usersecrets/<UserSecretsId>/secrets.json
+
+Значення секрету не виводиться в консоль і не
+зберігається у файлах appsettings.json.
+
+User Secrets використовуються лише для локальної
+розробки та не є зашифрованим сховищем.
+
+### Перевірка лабораторної роботи
+
+Перевірено:
+
+- Завантаження конфігурації Development і Production.
+- Зміну каталогу через CROSSAPP_DATA_PATH.
+- Перевизначення параметрів командного рядка.
+- Незалежність шляху від робочого каталогу.
+- Експорт та повторний імпорт JSON.
+- Коректне збереження українського тексту.
+- Відсутність залишкового файлу .tmp.
+- Обробку пошкодженого JSON.
+- Зберігання User Secrets поза репозиторієм Git.
+
+Для перевірки збірки:
+
+    dotnet build CrossApp.sln
+
+Для запуску автоматичних тестів:
+
+    dotnet test CrossApp.sln
+
+Результат перевірки: 17 тестів виконано успішно,
+помилок — 0.
+
+
+# Лабораторна робота №10. ASP.NET Core Minimal API
+
+**Тема:** Minimal API: CRUD над Core, валідація, OpenAPI (Scalar).
+
+**Предметна область:** система керування замовленнями меблів.
+
+## Мета роботи
+
+Розробити HTTP API на ASP.NET Core з використанням бізнес-логіки Core, реалізувати CRUD-операції, валідацію вхідних даних, обробку помилок, документацію OpenAPI/Scalar та інтеграційне тестування.
+
+## 1. Структура та реалізація
+
+Лабораторну виконано в наявному рішенні CrossApp на платформі .NET 10. Створено окремий проєкт `src/Api`, який використовує доменні сутності та інтерфейси `Core`, не змінюючи архітектуру консольного застосунку `Cli`.
+
+Основні компоненти:
+
+| Файл | Призначення |
+|---|---|
+| `Program.cs` | Налаштування DI, OpenAPI, Scalar, обробки помилок |
+| `OrderEndpoints.cs` | HTTP-маршрути замовлень |
+| `OrderContracts.cs` | Вхідні та вихідні DTO |
+| `SaveOrderRequestValidator.cs` | FluentValidation та Endpoint Filter |
+| `DomainExceptionHandler.cs` | Перетворення DomainException на HTTP 409 |
+| `IAsyncOrderStore.cs` | Асинхронний контракт із CancellationToken |
+| `AsyncOrderStoreAdapter.cs` | Адаптер синхронного сховища |
+| `OrderApiTests.cs` | Інтеграційні тести API |
+| `Api.http` | Запити для перевірки маршрутів |
+
+Для Dependency Injection використано `InMemoryOrderStore` із життєвим циклом Singleton та валідатор зі Scoped. Singleton створюється один раз для застосунку, Scoped — один раз на область запиту, Transient — при кожному отриманні залежності.
+
+## 2. Запуск та документація
+
+У терміналі з кореня CrossApp:
+
+```bash
+dotnet build CrossApp.sln
+dotnet run --project src/Api -- --urls http://localhost:5080
 ```
+
+Адреси для перевірки:
+
+- **Scalar:** http://localhost:5080/scalar/v1
+- **OpenAPI:** http://localhost:5080/openapi/v1.json
+- **Health:** http://localhost:5080/health
+
+OpenAPI та Scalar доступні лише в Development.
+
+## 3. Реалізовані HTTP-маршрути
+
+| Метод | Маршрут | Призначення |
+|---|---|---|
+| GET | `/api/orders` | Список, пошук і пагінація |
+| GET | `/api/orders/{id}` | Отримання замовлення за ID |
+| POST | `/api/orders` | Створення замовлення |
+| PUT | `/api/orders/{id}` | Оновлення замовлення |
+| DELETE | `/api/orders/{id}` | Видалення замовлення |
+| GET | `/api/orders/{id}/total` | Обчислення загальної суми |
+| POST | `/api/orders/{id}/confirm` | Підтвердження замовлення |
+
+API використовує окремі DTO, щоб не передавати доменні сутності Core безпосередньо клієнту. Вихідні дані містять `id`, `customer`, `status`, `lines`, `total` і `createdAt`. Дата створення зберігається після оновлення замовлення.
+
+**Приклад POST `/api/orders`:**
+
+```json
+{
+  "customer": "C-001",
+  "lines": [
+    {
+      "productId": "P-901",
+      "name": "Стіл дерев'яний",
+      "price": 3500,
+      "quantity": 2
+    }
+  ]
+}
+```
+
+У разі успішного створення API повертає `201 Created`, об'єкт замовлення та заголовок `Location`.
+
+## 4. Валідація та обробка помилок
+
+Для перевірки запитів POST і PUT використано **FluentValidation через Endpoint Filter**. Перевіряються обов'язковість клієнта, наявність товарів, коректність назв, ціни та кількості.
+
+| HTTP-статус | Значення |
+|---|---|
+| 200 OK | Успішне отримання або оновлення |
+| 201 Created | Замовлення створено |
+| 204 No Content | Замовлення видалено |
+| 400 Bad Request | Помилки валідації |
+| 404 Not Found | Замовлення не знайдено |
+| 409 Conflict | Порушення бізнес-правил |
+
+Помилки валідації повертаються у форматі `ValidationProblemDetails`, а доменні помилки — у форматі `ProblemDetails`.
+
+## 5. Додаткові завдання
+
+**1. Пагінація та пошук.** Реалізовано параметри `page`, `pageSize`, `search`. Відповідь містить `items` і `total`.
+
+**2. FluentValidation.** Створено окремий валідатор для замовлень, який підключено через `AddEndpointFilter`.
+
+**3. Обробка DomainException.** Реалізовано повернення `409 Conflict` у разі порушення бізнес-правил. Перевірено повторне підтвердження вже підтвердженого замовлення.
+
+**4. Інтеграційні тести.** За допомогою xUnit та `WebApplicationFactory` перевірено створення замовлення, заголовок `Location`, отримання за ID, валідацію та видалення.
+
+Додатково створено `IAsyncOrderStore` із підтримкою `Task`, `await` і `CancellationToken`. Адаптер використовує наявне синхронне сховище Core.
+
+## 6. Результати тестування
+
+HTTP-запитами перевірено CRUD, розрахунок суми, пошук, пагінацію, валідацію та обробку конфліктів. Також підтверджено, що поле `createdAt` не змінюється після PUT.
+
+Автоматичне тестування:
+
+```bash
+dotnet test CrossApp.sln
+```
+
+**Результат: 20 тестів пройдено, 0 помилок.** Усі проєкти CrossApp успішно компілюються.
+
+## Висновок
+
+У лабораторній роботі №10 реалізовано ASP.NET Core Minimal API для керування замовленнями меблів із використанням наявної бізнес-логіки Core. Виконано CRUD-операції, створено DTO, налаштовано Dependency Injection, валідацію FluentValidation, обробку HTTP-помилок та документацію OpenAPI/Scalar. Реалізовано додаткові завдання з пагінації, пошуку, обробки доменних винятків та інтеграційного тестування. Коректність роботи підтверджено HTTP-запитами та автоматичними тестами.

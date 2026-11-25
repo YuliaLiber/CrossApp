@@ -1,0 +1,70 @@
+@baseUrl = http://localhost:5080
+
+### 1. Перевірка сервера
+GET {{baseUrl}}/health
+
+### 2. Список замовлень
+GET {{baseUrl}}/api/orders
+
+### 3. Пагінація та пошук
+GET {{baseUrl}}/api/orders?page=1&pageSize=2&search=C-PAGE
+
+### 4. Створення замовлення
+# @name createOrder
+POST {{baseUrl}}/api/orders
+Content-Type: application/json
+
+{
+  "customer": "C-HTTP-TEST",
+  "lines": [
+    {
+      "productId": "P-901",
+      "name": "Стіл дерев'яний",
+      "price": 3500,
+      "quantity": 2
+    }
+  ]
+}
+
+### 5. Отримання створеного замовлення
+GET {{baseUrl}}/api/orders/{{createOrder.response.body.$.id}}
+
+### 6. Оновлення замовлення
+PUT {{baseUrl}}/api/orders/{{createOrder.response.body.$.id}}
+Content-Type: application/json
+
+{
+  "customer": "C-HTTP-TEST",
+  "lines": [
+    {
+      "productId": "P-901",
+      "name": "Стіл дерев'яний",
+      "price": 3500,
+      "quantity": 1
+    }
+  ]
+}
+
+### 7. Загальна сума замовлення
+GET {{baseUrl}}/api/orders/{{createOrder.response.body.$.id}}/total
+
+### 8. Помилка валідації — 400
+POST {{baseUrl}}/api/orders
+Content-Type: application/json
+
+{
+  "customer": "",
+  "lines": []
+}
+
+### 9. Підтвердження замовлення — 200
+POST {{baseUrl}}/api/orders/{{createOrder.response.body.$.id}}/confirm
+
+### 10. Повторне підтвердження — 409
+POST {{baseUrl}}/api/orders/{{createOrder.response.body.$.id}}/confirm
+
+### 11. Видалення замовлення — 204
+DELETE {{baseUrl}}/api/orders/{{createOrder.response.body.$.id}}
+
+### 12. Перевірка після видалення — 404
+GET {{baseUrl}}/api/orders/{{createOrder.response.body.$.id}}

@@ -9,18 +9,20 @@ public sealed class Order
 
     public string Id { get; }
     public string CustomerId { get; }
+    public DateTimeOffset CreatedAt { get; }
     public OrderStatus Status { get; private set; }
     public IReadOnlyList<OrderLine> Lines => _lines.AsReadOnly();
     public decimal Total => _lines.Sum(x => x.Price * x.Quantity);
 
-    private Order(string id, string customerId)
+    private Order(string id, string customerId, DateTimeOffset? createdAt)
     {
         Id = id;
         CustomerId = customerId;
+        CreatedAt = createdAt ?? DateTimeOffset.UtcNow;
         Status = OrderStatus.Draft;
     }
 
-    public static Order Create(string id, string customerId)
+    public static Order Create(string id, string customerId, DateTimeOffset? createdAt = null)
     {
         if (string.IsNullOrWhiteSpace(id))
             throw new ArgumentException(
@@ -30,7 +32,7 @@ public sealed class Order
             throw new ArgumentException(
                 "ID клієнта не може бути порожнім");
 
-        return new Order(id.Trim(), customerId.Trim());
+        return new Order(id.Trim(), customerId.Trim(), createdAt);
     }
 
     public void AddLine(
@@ -84,7 +86,8 @@ public sealed class Order
             Id,
             CustomerId,
             Status.ToString(),
-            _lines.Select(x => x.ToDto()).ToList());
+            _lines.Select(x => x.ToDto()).ToList(),
+             CreatedAt);
 
     public static Order FromDto(OrderDto dto)
     {
@@ -102,7 +105,7 @@ public sealed class Order
             throw new ArgumentException(
                 $"Невідомий статус: {dto.Status}");
 
-        Order order = Create(dto.Id, dto.CustomerId);
+        Order order = Create(dto.Id, dto.CustomerId, dto.CreatedAt);
 
         foreach (var line in dto.Lines)
         {

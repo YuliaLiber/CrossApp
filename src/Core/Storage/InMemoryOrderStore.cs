@@ -17,38 +17,53 @@ public sealed class InMemoryOrderStore : IOrderStore
 
     public IReadOnlyList<Order> List()
     {
-        return _items.Values.ToList();
+        lock (_items)
+        {
+            return _items.Values.ToList();
+        }
     }
 
     public Order? GetById(string id)
     {
-        return _items.GetValueOrDefault(id);
+        lock (_items)
+        {
+            return _items.GetValueOrDefault(id);
+        }
     }
 
     public void Add(Order order)
     {
         ArgumentNullException.ThrowIfNull(order);
 
-        if (_items.ContainsKey(order.Id))
-            throw new InvalidOperationException(
-                $"Замовлення з id={order.Id} вже існує.");
+        lock (_items)
+        {
+            if (_items.ContainsKey(order.Id))
+                throw new InvalidOperationException(
+                    $"Замовлення з id={order.Id} вже існує.");
 
-        _items.Add(order.Id, order);
+            _items.Add(order.Id, order);
+        }
     }
 
     public void Update(Order order)
     {
         ArgumentNullException.ThrowIfNull(order);
 
-        if (!_items.ContainsKey(order.Id))
-            throw new InvalidOperationException(
-                $"Замовлення з id={order.Id} не знайдено.");
+        lock (_items)
+        {
+            if (!_items.ContainsKey(order.Id))
+                throw new InvalidOperationException(
+                    $"Замовлення з id={order.Id} не знайдено.");
 
-        _items[order.Id] = order;
+            _items[order.Id] = order;
+        }
     }
 
     public bool Remove(string id)
     {
-        return _items.Remove(id);
+        lock (_items)
+        {
+            return _items.Remove(id);
+        }
     }
 }
