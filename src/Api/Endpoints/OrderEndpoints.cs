@@ -9,8 +9,7 @@ public static class OrderEndpoints
 {
     public static void MapOrders(this WebApplication app)
     {
-        var group = app.MapGroup("/api/orders")
-            .WithTags("Orders");
+        var group = app.MapGroup("/api/orders").WithTags("Orders");
 
         group.MapGet("", GetOrdersAsync)
             .WithName("GetOrders")
@@ -54,11 +53,8 @@ public static class OrderEndpoints
     }
 
     private static async Task<IResult> GetOrdersAsync(
-        IAsyncOrderStore store,
-        int? page,
-        int? pageSize,
-        string? search,
-        CancellationToken ct)
+        IAsyncOrderStore store, int? page, int? pageSize,
+        string? search, CancellationToken ct)
     {
         int p = page ?? 1;
         int size = pageSize ?? 20;
@@ -72,13 +68,12 @@ public static class OrderEndpoints
                 });
 
         var orders = await store.ListAsync(ct);
-
         var query = orders.OrderBy(x => x.Id).AsEnumerable();
 
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(x =>
-                x.Id.Contains(search, StringComparison.OrdinalIgnoreCase)
-                || x.CustomerId.Contains(search, StringComparison.OrdinalIgnoreCase));
+                x.Id.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                x.CustomerId.Contains(search, StringComparison.OrdinalIgnoreCase));
 
         int total = query.Count();
 
@@ -95,7 +90,6 @@ public static class OrderEndpoints
         string id, IAsyncOrderStore store, CancellationToken ct)
     {
         var order = await store.GetByIdAsync(id, ct);
-
         return order is null
             ? Results.NotFound()
             : Results.Ok(ToDto(order));
@@ -105,39 +99,28 @@ public static class OrderEndpoints
         string id, IAsyncOrderStore store, CancellationToken ct)
     {
         var order = await store.GetByIdAsync(id, ct);
-
         return order is null
             ? Results.NotFound()
             : Results.Ok(new OrderTotalDto(order.Id, order.Total));
     }
 
     private static async Task<IResult> CreateOrderAsync(
-        SaveOrderRequest? request,
-        IAsyncOrderStore store,
+        SaveOrderRequest? request, IAsyncOrderStore store,
         CancellationToken ct)
     {
-        if (!TryValidate(request, out var errors))
-            return Results.ValidationProblem(errors);
-
         string id = "O-" + Guid.NewGuid()
             .ToString("N")[..12].ToUpperInvariant();
 
         var order = BuildOrder(id, request!);
-
         await store.AddAsync(order, ct);
 
         return Results.Created($"/api/orders/{id}", ToDto(order));
     }
 
     private static async Task<IResult> UpdateOrderAsync(
-        string id,
-        SaveOrderRequest? request,
-        IAsyncOrderStore store,
-        CancellationToken ct)
+        string id, SaveOrderRequest? request,
+        IAsyncOrderStore store, CancellationToken ct)
     {
-        if (!TryValidate(request, out var errors))
-            return Results.ValidationProblem(errors);
-
         var existing = await store.GetByIdAsync(id, ct);
 
         if (existing is null)
@@ -150,7 +133,6 @@ public static class OrderEndpoints
                 statusCode: 409);
 
         var updated = BuildOrder(id, request!, existing.CreatedAt);
-
         await store.UpdateAsync(updated, ct);
 
         return Results.Ok(ToDto(updated));
@@ -165,7 +147,6 @@ public static class OrderEndpoints
             return Results.NotFound();
 
         order.Confirm();
-
         await store.UpdateAsync(order, ct);
 
         return Results.Ok(ToDto(order));
@@ -175,13 +156,11 @@ public static class OrderEndpoints
         string id, IAsyncOrderStore store, CancellationToken ct)
     {
         bool removed = await store.RemoveAsync(id, ct);
-
         return removed ? Results.NoContent() : Results.NotFound();
     }
 
     private static Order BuildOrder(
-        string id,
-        SaveOrderRequest request,
+        string id, SaveOrderRequest request,
         DateTimeOffset? createdAt = null)
     {
         var order = Order.Create(id, request.Customer!, createdAt);
@@ -204,68 +183,7 @@ public static class OrderEndpoints
             order.Status.ToString(),
             order.Total,
             order.Lines.Select(x => new OrderLineDto(
-                x.ProductId,
-                x.Name,
-                x.Price,
-                x.Quantity)).ToList(),
+                x.ProductId, x.Name, x.Price, x.Quantity)).ToList(),
             order.CreatedAt);
-    }
-
-    private static bool TryValidate(
-        SaveOrderRequest? request,
-        out Dictionary<string, string[]> errors)
-    {
-        errors = new Dictionary<string, string[]>();
-
-        if (request is null)
-        {
-            errors["body"] = ["Тіло запиту обов'язкове."];
-            return false;
-        }
-
-        if (string.IsNullOrWhiteSpace(request.Customer)
-            || request.Customer.Length > 100)
-            errors["customer"] =
-                ["Клієнт обов'язковий, максимум 100 символів."];
-
-        if (request.Lines is null || request.Lines.Count == 0)
-        {
-            errors["lines"] =
-                ["Замовлення повинно містити хоча б один товар."];
-        }
-        else
-        {
-            for (int i = 0; i < request.Lines.Count; i++)
-            {
-                var line = request.Lines[i];
-
-                if (line is null)
-                {
-                    errors[$"lines[{i}]"] =
-                        ["Позиція не може бути null."];
-                    continue;
-                }
-
-                if (string.IsNullOrWhiteSpace(line.ProductId)
-                    || line.ProductId.Length > 100)
-                    errors[$"lines[{i}].productId"] =
-                        ["Артикул обов'язковий, максимум 100 символів."];
-
-                if (string.IsNullOrWhiteSpace(line.Name)
-                    || line.Name.Length > 200)
-                    errors[$"lines[{i}].name"] =
-                        ["Назва обов'язкова, максимум 200 символів."];
-
-                if (line.Price < 0)
-                    errors[$"lines[{i}].price"] =
-                        ["Ціна не може бути від'ємною."];
-
-                if (line.Quantity <= 0)
-                    errors[$"lines[{i}].quantity"] =
-                        ["Кількість має бути більшою за нуль."];
-            }
-        }
-
-        return errors.Count == 0;
     }
 }

@@ -1077,3 +1077,66 @@ dotnet test CrossApp.sln
 ## Висновок
 
 У лабораторній роботі №10 реалізовано ASP.NET Core Minimal API для керування замовленнями меблів із використанням наявної бізнес-логіки Core. Виконано CRUD-операції, створено DTO, налаштовано Dependency Injection, валідацію FluentValidation, обробку HTTP-помилок та документацію OpenAPI/Scalar. Реалізовано додаткові завдання з пагінації, пошуку, обробки доменних винятків та інтеграційного тестування. Коректність роботи підтверджено HTTP-запитами та автоматичними тестами.
+## ЛР11 — EF Core та SQLite
+
+Лабораторна №11 продовжує Minimal API з ЛР10.
+
+### Архітектура
+- Core — доменні сутності та інтерфейси без EF Core.
+- Infrastructure — AppDbContext, OrderRow, OrderLineRow, EfOrderStore.
+- Api — HTTP-маршрути, DTO, валідація та DI.
+- SQLite — постійне збереження замовлень.
+
+### База даних
+- Orders — замовлення.
+- OrderLines — товарні позиції.
+- Зв'язок Order 1:N OrderLine.
+- Каскадне видалення товарів разом із замовленням.
+- Total обчислюється із ціни та кількості товарів.
+
+### Підключення
+У src/Api/appsettings.json використовується:
+
+ConnectionStrings:AppDb = Data Source=data/app.db
+
+Відносний шлях перетворюється на абсолютний
+відносно ContentRootPath проєкту Api.
+
+### Міграції
+Потрібні .NET 10 та dotnet-ef 10.x.
+
+Застосувати наявну міграцію:
+
+dotnet ef database update --project src/Infrastructure --startup-project src/Api
+
+Створити наступну міграцію після зміни моделей:
+
+dotnet ef migrations add НазваМіграції --project src/Infrastructure --startup-project src/Api
+
+### Запуск
+ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Api -- --urls http://localhost:5090
+
+Документація:
+http://localhost:5090/scalar/v1
+
+### Перевірка SQLite
+sqlite3 src/Api/data/app.db ".tables"
+
+Дані зберігаються після перезапуску API.
+
+### Скидання локальної бази
+1. Зупинити API.
+2. Видалити локальні файли app.db, app.db-wal та app.db-shm.
+3. Повторно виконати dotnet ef database update.
+
+Це видаляє локальні дані, але не файли міграцій.
+
+### Тестування
+dotnet test CrossApp.sln
+
+Інтеграційні тести використовують окрему
+SQLite-базу в оперативній пам'яті.
+
+### Git
+Файли *.db, *.db-wal та *.db-shm ігноруються.
+Файли Migrations потрібно зберігати в Git.

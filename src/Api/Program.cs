@@ -1,3 +1,6 @@
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Infrastructure.Persistence;
 using Core.Abstractions;
 using Core.Storage;
 using Scalar.AspNetCore;
@@ -18,8 +21,24 @@ builder.Services.AddScoped<
     IValidator<SaveOrderRequest>,
     SaveOrderRequestValidator>();
 
-builder.Services.AddSingleton<IOrderStore, InMemoryOrderStore>();
-builder.Services.AddSingleton<IAsyncOrderStore, AsyncOrderStoreAdapter>();
+
+
+var connectionString = builder.Configuration.GetConnectionString("AppDb")
+    ?? throw new InvalidOperationException("Не задано ConnectionStrings:AppDb");
+
+var sqlite = new SqliteConnectionStringBuilder(connectionString);
+
+if (!Path.IsPathRooted(sqlite.DataSource))
+    sqlite.DataSource = Path.GetFullPath(
+        Path.Combine(builder.Environment.ContentRootPath, sqlite.DataSource));
+
+Directory.CreateDirectory(Path.GetDirectoryName(sqlite.DataSource)!);
+
+builder.Services.AddDbContext<AppDbContext>(
+    options => options.UseSqlite(sqlite.ConnectionString));
+
+builder.Services.AddScoped<IAsyncOrderStore, EfOrderStore>();
+
 
 var app = builder.Build();
 

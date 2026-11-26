@@ -10,8 +10,8 @@ public class OrderApiTests
     [Fact]
     public async Task Post_Creates_Order_And_Get_Returns_It()
     {
-        using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient();
+        using var factory = new SqliteTestFactory();
+        using var client = factory.CreateTestClient();
 
         var response = await client.PostAsJsonAsync("/api/orders",
             new
@@ -51,8 +51,8 @@ public class OrderApiTests
     [Fact]
     public async Task Invalid_Order_Returns_400()
     {
-        using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient();
+        using var factory = new SqliteTestFactory();
+        using var client = factory.CreateTestClient();
 
         var response = await client.PostAsJsonAsync("/api/orders",
             new
@@ -74,8 +74,8 @@ public class OrderApiTests
     [Fact]
     public async Task Delete_Order_Then_Get_Returns_404()
     {
-        using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient();
+        using var factory = new SqliteTestFactory();
+        using var client = factory.CreateTestClient();
 
         var created = await client.PostAsJsonAsync("/api/orders",
             new
